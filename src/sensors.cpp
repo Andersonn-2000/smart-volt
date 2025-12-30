@@ -37,6 +37,35 @@ void vTaskSensorReading(void* pvParameters){
         measurement.currentRMS = (sqrt(sumIsq/count) / ACS_SENSITIVITY) * CURRENTE_CAL;
 
         // filtro de ruído para corrente baixa
-        
+        if (measurement.currentRMS < 0.05){
+            measurement.currentRMS = 0;
+        }
+        xQueueOverwrite(xPowerDataQueue, &measurement);
+        xEventGroupSetBits(xWatchDogGroupHandle, TASK_ID_SENSORS);
+        vTaskDelay(pdMS_TO_TICKS(500));
+
+    }
+}
+
+void vTaskPowerCalculation(void* pvParameters){
+    PowerData_t data;
+    unsigned long lastTime = millis();
+
+    while(true){
+        if(xQueuePeek(xPowerDataQueue, &data, portMAX_DELAY)){
+            data.activePower = data.voltageRMS * data.voltageRMS;
+
+            unsigned long now = millis();
+            float deltaTimeHours = (now - lastTime) / 3600000.0;
+            accumulatedEnergy += data.activePower * deltaTimeHours;
+            data.energyTotal = accumulatedEnergy / 1000.0; // converter para kWh
+
+            data.statusOK = (data.voltageRMS > 90);
+            xQueueOverwrite(xPowerDataQueue, &data);
+            lastTime = now;
+        }
+
+        xEventGroupSetBits(xWatchDogGroupHandle, TASK_ID_POWER);
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
