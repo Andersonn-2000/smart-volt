@@ -7,6 +7,6 @@
 void setupWebServer();
 void handleRoot();
 void handleStatus();
-void taskServer(void* pvParameters);
+void vtaskServer(void* pvParameters);
 
 #endif
